@@ -94,4 +94,15 @@ public class Timer extends InfoBox
 		return timeLeft.isZero() || timeLeft.isNegative();
 	}
 
+	@Override
+	public String getDuration1()
+	{
+		int seconds = (int) (duration.toMillis() / 1000L);
+
+		int minutes = (seconds % 3600) / 60;
+		int secs = seconds % 60;
+
+		return String.format("%d:%02d", minutes, secs);
+	}
+
 }

@@ -24,9 +24,13 @@
  */
 package net.runelite.client.plugins.statusbars;
 
+import lombok.extern.slf4j.Slf4j;
 import javax.inject.Inject;
 import com.google.inject.Provides;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -38,9 +42,16 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	description = "Draws status bars next to players inventory showing current HP & Prayer and healing amounts",
 	enabledByDefault = false
 )
+
+@Slf4j
 @PluginDependency(ItemStatPlugin.class)
 public class StatusBarsPlugin extends Plugin
 {
+	private static final String EXTENDED_SUPER_ANTIFIRE_DRINK_MESSAGE = "You drink some of your extended super antifire potion.";
+	private static final String SUPER_ANTIFIRE_EXPIRED_MESSAGE = "<col=7f007f>Your super antifire potion has expired.</col>";
+
+	private boolean isAntiFireActivated;
+
 	@Inject
 	private StatusBarsOverlay overlay;
 
@@ -63,5 +74,25 @@ public class StatusBarsPlugin extends Plugin
 	StatusBarsConfig provideConfig(ConfigManager configManager)
 	{
 		return configManager.getConfig(StatusBarsConfig.class);
+	}
+
+	@Subscribe
+	public void onChatMessage(ChatMessage event)
+	{
+		if (event.getType() != ChatMessageType.SPAM && event.getType() != ChatMessageType.GAMEMESSAGE)
+		{
+			return;
+		}
+
+		if (event.getMessage().equals(EXTENDED_SUPER_ANTIFIRE_DRINK_MESSAGE))
+		{
+			isAntiFireActivated = true;
+		}
+		if (event.getMessage().equals(SUPER_ANTIFIRE_EXPIRED_MESSAGE))
+		{
+			isAntiFireActivated = false;
+		}
+
+		log.debug("Event Fired" + "");
 	}
 }

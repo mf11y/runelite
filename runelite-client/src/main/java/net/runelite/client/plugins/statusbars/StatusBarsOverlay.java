@@ -27,16 +27,15 @@ package net.runelite.client.plugins.statusbars;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
+import java.awt.Image;
+import java.util.List;
 import javax.inject.Inject;
-import net.runelite.api.Client;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.Point;
-import net.runelite.api.Skill;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.Varbits;
+
+import net.runelite.api.*;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.SkillIconManager;
 import net.runelite.client.plugins.itemstats.Effect;
 import net.runelite.client.plugins.itemstats.ItemStatChangesService;
@@ -46,9 +45,15 @@ import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.ui.overlay.OverlayUtil;
 import net.runelite.client.ui.overlay.components.TextComponent;
+import net.runelite.client.ui.overlay.infobox.InfoBox;
+import net.runelite.client.ui.overlay.infobox.InfoBoxManager;
 import net.runelite.client.util.ImageUtil;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.Text;
 
+@Slf4j
 class StatusBarsOverlay extends Overlay
 {
 	private static final Color PRAYER_COLOR = new Color(50, 200, 200, 175);
@@ -60,6 +65,7 @@ class StatusBarsOverlay extends Overlay
 	private static final Color HEAL_COLOR = new Color(255, 112, 6, 150);
 	private static final Color PRAYER_HEAL_COLOR = new Color(57, 255, 186, 75);
 	private static final Color OVERHEAL_COLOR = new Color(216, 255, 139, 150);
+	private static final Color ANTIFIRE_COLOR = new Color(159, 115, 194,225);
 	private static final int HEIGHT = 252;
 	private static final int RESIZED_BOTTOM_HEIGHT = 272;
 	private static final int WIDTH = 20;
@@ -83,7 +89,10 @@ class StatusBarsOverlay extends Overlay
 	private final TextComponent textComponent = new TextComponent();
 	private final ItemStatChangesService itemStatService;
 
-	private final BufferedImage prayerImage;
+	private final Image prayerImage;
+
+	@Inject
+	private InfoBoxManager infoboxManager;
 
 	@Inject
 	private StatusBarsOverlay(Client client, StatusBarsConfig config, SkillIconManager skillIconManager, ItemStatChangesService itemstatservice)
@@ -98,9 +107,46 @@ class StatusBarsOverlay extends Overlay
 		prayerImage = ImageUtil.resizeImage(skillIconManager.getSkillImage(Skill.PRAYER, true), IMAGE_SIZE, IMAGE_SIZE);
 	}
 
+
 	@Override
 	public Dimension render(Graphics2D g)
 	{
+		final Player localPlayer = client.getLocalPlayer();
+		final int zOffset =localPlayer.getLogicalHeight() + 40;
+		final String name = Text.sanitize(localPlayer.getName());
+		Point textLocation = localPlayer.getCanvasTextLocation(g, name, zOffset);
+		final int textHeight = g.getFontMetrics().getHeight() - g.getFontMetrics().getMaxDescent();
+		textLocation = new Point(textLocation.getX(), textLocation.getY());
+
+		final List<InfoBox> infoBoxes = infoboxManager.getInfoBoxes();
+
+		if (infoBoxes.isEmpty())
+		{
+
+		}
+		else
+		{
+			for (InfoBox box : infoBoxes)
+			{
+				if (!box.render())
+				{
+					continue;
+				}
+
+				final String text = box.getDuration1();
+
+				log.debug("the string is" + text);
+			}
+
+		}
+
+		//OverlayUtil.renderTextLocation(g, textLocation, name, PRAYER_COLOR);
+
+		g.setColor(ANTIFIRE_COLOR);
+		g.drawRect(textLocation.getX(),textLocation.getY(),30, 5);
+		g.setColor(ANTIFIRE_COLOR);
+		g.fillRect(textLocation.getX() + 1, textLocation.getY() + 1, 15, 4);
+
 		final Widget widgetBankTitleBar = client.getWidget(WidgetInfo.BANK_TITLE_BAR);
 		if (widgetBankTitleBar != null && !widgetBankTitleBar.isHidden())
 		{
@@ -172,10 +218,11 @@ class StatusBarsOverlay extends Overlay
 		final Color prayerBar = quickPrayerState == 1 ? QUICK_PRAYER_COLOR : PRAYER_COLOR;
 
 		renderBar(g, offsetHealthX, offsetHealthY,
-			maxHealth, currentHealth, height, healthBar);
+				maxHealth, currentHealth, height, healthBar);
 
 		renderBar(g, offsetPrayerX, offsetPrayerY,
-			maxPrayer, currentPrayer, height, prayerBar);
+				maxPrayer, currentPrayer , height, prayerBar);
+
 
 		if (config.enableRestorationBars())
 		{
@@ -215,17 +262,17 @@ class StatusBarsOverlay extends Overlay
 			}
 
 			renderHealingBar(g, offsetHealthX, offsetHealthY,
-				maxHealth, currentHealth, height,
-				foodHealValue, HEAL_COLOR);
+					maxHealth, currentHealth, height,
+					foodHealValue, HEAL_COLOR);
 
 			renderHealingBar(g, offsetPrayerX, offsetPrayerY,
-				maxPrayer, currentPrayer, height,
-				prayerHealValue, PRAYER_HEAL_COLOR);
+					maxPrayer, currentPrayer, height,
+					prayerHealValue, PRAYER_HEAL_COLOR);
 		}
 
 		if (config.enableSkillIcon() || config.enableCounter())
 		{
-			final BufferedImage healthImage = skillIconManager.getSkillImage(Skill.HITPOINTS, true);
+			final Image healthImage = skillIconManager.getSkillImage(Skill.HITPOINTS, true);
 			final int counterHealth = client.getBoostedSkillLevel(Skill.HITPOINTS);
 			final int counterPrayer = client.getBoostedSkillLevel(Skill.PRAYER);
 			final String counterHealthText = Integer.toString(counterHealth);
@@ -247,9 +294,9 @@ class StatusBarsOverlay extends Overlay
 		final int filledHeight = getBarHeight(max, current, height);
 		graphics.setColor(filled);
 		graphics.fillRect(x + PADDING,
-			y + PADDING + (height - filledHeight),
-			WIDTH - PADDING * OFFSET,
-			filledHeight - PADDING * OFFSET);
+				y + PADDING + (height - filledHeight),
+				WIDTH - PADDING * OFFSET,
+				filledHeight - PADDING * OFFSET);
 	}
 
 	private static void renderHealingBar(Graphics2D graphics, int x, int y, int max, int current, int height, int heal, Color color)
@@ -269,16 +316,16 @@ class StatusBarsOverlay extends Overlay
 			filledHeight = filledHeight - overHeal + OVERHEAL_OFFSET;
 			graphics.setColor(OVERHEAL_COLOR);
 			graphics.fillRect(x + PADDING,
-				y - filledCurrentHeight + (height - filledHeight) + HEAL_OFFSET,
-				WIDTH - PADDING * OVERHEAL_OFFSET,
-				filledHeight - PADDING * OVERHEAL_OFFSET);
+					y - filledCurrentHeight + (height - filledHeight) + HEAL_OFFSET,
+					WIDTH - PADDING * OVERHEAL_OFFSET,
+					filledHeight - PADDING * OVERHEAL_OFFSET);
 		}
 		else
 		{
 			graphics.fillRect(x + PADDING,
-				y - OVERHEAL_OFFSET - filledCurrentHeight + (height - filledHeight) + HEAL_OFFSET,
-				WIDTH - PADDING * OVERHEAL_OFFSET,
-				filledHeight + OVERHEAL_OFFSET - PADDING * OVERHEAL_OFFSET);
+					y - OVERHEAL_OFFSET - filledCurrentHeight + (height - filledHeight) + HEAL_OFFSET,
+					WIDTH - PADDING * OVERHEAL_OFFSET,
+					filledHeight + OVERHEAL_OFFSET - PADDING * OVERHEAL_OFFSET);
 		}
 	}
 
@@ -294,7 +341,7 @@ class StatusBarsOverlay extends Overlay
 		return (int) Math.round(ratio * size);
 	}
 
-	private void renderIconsAndCounters(Graphics2D graphics, int x, int y, BufferedImage image, String counterText, int counterPadding)
+	private void renderIconsAndCounters(Graphics2D graphics, int x, int y, Image image, String counterText, int counterPadding)
 	{
 		final int widthOfCounter = graphics.getFontMetrics().stringWidth(counterText);
 		final int centerText = (WIDTH - PADDING) / 2 - (widthOfCounter / 2);

@@ -689,7 +689,7 @@ public class TimersPlugin extends Plugin
 		if (widget != null
 			&& !widget.isSelfHidden())
 		{
-			log.debug("Entered safe zone in PVP world, clearing Teleblock timer.");
+			//log.debug("Entered safe zone in PVP world, clearing Teleblock timer.");
 			removeTbTimers();
 		}
 	}
