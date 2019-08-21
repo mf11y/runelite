@@ -133,7 +133,7 @@ class StatusBarsOverlay extends Overlay
 					continue;
 				}
 
-				final String text = box.getDuration1();
+				final String text = box.getText();
 
 				log.debug("the string is" + text);
 			}

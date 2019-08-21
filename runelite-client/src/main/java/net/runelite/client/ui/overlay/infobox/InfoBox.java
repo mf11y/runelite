@@ -73,8 +73,4 @@ public abstract class InfoBox
 		return false;
 	}
 
-	public String getDuration1()
-	{
-		return "";
-	}
 }
